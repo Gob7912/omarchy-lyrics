@@ -1,0 +1,13 @@
+# System & IDE files
+.DS_Store
+*.swp
+*~
+*.bak
+
+# Temporary & Cache files
+*.tmp
+__pycache__/
+*.pyc
+
+# Local cache
+.cache/

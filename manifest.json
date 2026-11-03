@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "gob7912.lyrics",
+  "name": "Lyrics",
+  "version": "1.0.0",
+  "author": "Gob7912",
+  "license": "MIT",
+  "description": "Synced karaoke and word-by-word lyrics with NetEase YRC and LRCLIB support for the Omarchy status bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Lyrics",
+    "description": "Synchronized song lyrics with full view popup and per-track sync offset calibration",
+    "category": "Media",
+    "defaultSection": "center",
+    "allowMultiple": false
+  }
+}
