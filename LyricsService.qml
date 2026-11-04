@@ -268,8 +268,8 @@ Item {
     var ws = l.ws || l.w
     if (!ws || !l.s) return 0
     var n = 0
-    // 60ms lead time so words appear right on the beat
-    var leadPos = position + 0.06
+    // 20ms lead time (within 1 frame at 60fps) so words appear right on sound start without rushing ahead
+    var leadPos = position + 0.02
     while (n < ws.length && ws[n] <= leadPos) {
       n++
     }
@@ -615,22 +615,48 @@ Item {
 
       http("https://music.163.com/api/song/lyric/v1?id=" + match.id + "&lv=1&yv=1", function(code2, lyr) {
         var lrc = lyr && lyr.yrc && lyr.yrc.lyric ? yrcToLrc(lyr.yrc.lyric) : ""
-        if (!goodLrc(lrc) || _mem[key] !== data) return markTried()
+        if (goodLrc(lrc)) {
+          var up = {
+            source: "NetEase (YRC)",
+            syncedLyrics: lrc,
+            trackName: match.name,
+            duration: (match.dt || 0) / 1000,
+            wordsTried: true
+          }
+          if (tempoVersion && up.duration > 0 && d > 0 && Math.abs(up.duration - d) > 3) {
+            up.scale = d / up.duration
+          }
+          storeCache(key, up)
+          if (key === trackKey) {
+            apply(up)
+          }
+          return
+        }
 
-        var up = {
-          source: "NetEase (YRC)",
-          syncedLyrics: lrc,
-          trackName: match.name,
-          duration: (match.dt || 0) / 1000,
-          wordsTried: true
-        }
-        if (tempoVersion && up.duration > 0 && d > 0 && Math.abs(up.duration - d) > 3) {
-          up.scale = d / up.duration
-        }
-        storeCache(key, up)
-        if (key === trackKey) {
-          apply(up)
-        }
+        // If no YRC, check if NetEase standard LRC has higher line resolution than current data
+        http("https://music.163.com/api/song/lyric?id=" + match.id + "&lv=1", function(code3, lyr3) {
+          var stdLrc = lyr3 && lyr3.lrc && lyr3.lrc.lyric ? stripCredits(lyr3.lrc.lyric) : ""
+          var curLines = (data.syncedLyrics.match(/\[\d+:\d+/g) || []).length
+          var newLines = (stdLrc.match(/\[\d+:\d+/g) || []).length
+          if (goodLrc(stdLrc) && newLines > curLines + 10) {
+            var upStd = {
+              source: "NetEase (LRC)",
+              syncedLyrics: stdLrc,
+              trackName: match.name,
+              duration: (match.dt || 0) / 1000,
+              wordsTried: true
+            }
+            if (tempoVersion && upStd.duration > 0 && d > 0 && Math.abs(upStd.duration - d) > 3) {
+              upStd.scale = d / upStd.duration
+            }
+            storeCache(key, upStd)
+            if (key === trackKey) {
+              apply(upStd)
+            }
+            return
+          }
+          markTried()
+        })
       })
     })
   }
@@ -776,7 +802,11 @@ Item {
             return matches({ title: r.trackName || r.name, artist: r.artistName, duration: r.duration }, queryItem, d)
           })
           var synced = okList.filter(function(r) { return r.syncedLyrics }).sort(function(x, y) {
-            return Math.abs((x.duration || 0) - d) - Math.abs((y.duration || 0) - d)
+            var durDiff = Math.abs((x.duration || 0) - d) - Math.abs((y.duration || 0) - d)
+            if (Math.abs(durDiff) > 1.5) return durDiff
+            var scoreX = (ratio(x.artistName, queryItem.artist) * 100) + ((x.syncedLyrics.match(/\[\d+:\d+/g) || []).length)
+            var scoreY = (ratio(y.artistName, queryItem.artist) * 100) + ((y.syncedLyrics.match(/\[\d+:\d+/g) || []).length)
+            return scoreY - scoreX
           })
           if (synced.length > 0) {
             var item = synced[0]
